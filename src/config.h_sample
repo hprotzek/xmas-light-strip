@@ -1,0 +1,21 @@
+#ifndef config
+#define config
+
+/************ WIFI and MQTT Information (CHANGE THESE FOR YOUR SETUP) ******************/
+const char* ssid = "xxx"; //type your WIFI information inside the quotes
+const char* password = "xxx";
+const char* mqtt_server = "0.0.0.0";
+const char* mqtt_username = "xmas-light-strip";
+const char* mqtt_password = "xxx";
+const int mqtt_port = 1883;
+
+/**************************** FOR OTA **************************************************/
+#define SENSORNAME "xmas-light-strip" //change this to whatever you want to call your device
+#define OTApassword "xxx" //the password you will need to enter to upload remotely via the ArduinoIDE
+int OTAport = 8266;
+
+/************* MQTT TOPICS (change these topics as you wish)  **************************/
+const char* light_state_topic = "lights/xmas-light-strip";
+const char* light_set_topic = "lights/xmas-light-strip/set";
+
+#endif
