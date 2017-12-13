@@ -1,4 +1,5 @@
 #define FASTLED_ESP8266_D1_PIN_ORDER
+#define FASTLED_ALLOW_INTERRUPTS 0
 
 #include <ArduinoJson.h>
 #include <ESP8266WiFi.h>
