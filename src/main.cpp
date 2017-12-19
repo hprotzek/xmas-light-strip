@@ -33,7 +33,6 @@ String oldeffectString = "solid";
 
 /****************************************FOR JSON***************************************/
 const int BUFFER_SIZE = JSON_OBJECT_SIZE(10);
-#define MQTT_MAX_PACKET_SIZE 512
 
 /*********************************** FastLED Defintions ********************************/
 #define NUM_LEDS    100
@@ -53,7 +52,7 @@ byte brightness = 255;
 int color_temp = 144;
 
 /******************************** GLOBALS for fade/flash *******************************/
-bool stateOn = true;
+bool stateOn = false;
 bool startFade = false;
 bool onbeforeflash = false;
 unsigned long lastLoop = 0;
@@ -399,6 +398,7 @@ void sendState() {
   root["brightness"] = brightness;
   root["effect"] = effectString.c_str();
   root["color_temp"] = color_temp;
+  root["transition"] = transitionTime;
 
 
   char buffer[root.measureLength() + 1];
@@ -406,8 +406,6 @@ void sendState() {
 
   client.publish(light_state_topic, buffer, true);
 }
-
-
 
 /********************************** START RECONNECT*****************************************/
 void reconnect() {
@@ -417,9 +415,10 @@ void reconnect() {
     // Attempt to connect
     if (client.connect(SENSORNAME, mqtt_username, mqtt_password)) {
       Serial.println("connected");
-      client.subscribe(light_set_topic);
-      setColor(0, 0, 0);
-      sendState();
+      client.subscribe(light_command_topic);
+      // not required or?
+      // setColor(0, 0, 0);
+      // sendState();
     } else {
       Serial.print("failed, rc=");
       Serial.print(client.state());
@@ -467,12 +466,9 @@ void loop() {
     return;
   }
 
-
-
   client.loop();
 
   ArduinoOTA.handle();
-
 
   //EFFECT BPM
   if (effectString == "bpm") {
