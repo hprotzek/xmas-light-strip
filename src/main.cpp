@@ -10,6 +10,21 @@
 #include <ArduinoOTA.h>
 #include "config.h"
 
+/*
+  SAMPLE PAYLOAD:
+  {
+    "brightness": 120,
+    "color": {
+      "r": 255,
+      "g": 100,
+      "b": 100
+    },
+    "flash": 2,
+    "transition": 5,
+    "state": "ON"
+  }
+*/
+
 void setupStripedPalette( CRGB A, CRGB AB, CRGB B, CRGB BA);
 void setup_wifi();
 void callback(char* topic, byte* payload, unsigned int length);
@@ -27,9 +42,9 @@ int calculateVal(int step, int val, int i);
 
 const char* on_cmd = "ON";
 const char* off_cmd = "OFF";
-const char* effect = "solid";
-String effectString = "solid";
-String oldeffectString = "solid";
+const char* effect = "rainbow";
+String effectString = "rainbow";
+String oldeffectString = "rainbow";
 
 /****************************************FOR JSON***************************************/
 const int BUFFER_SIZE = JSON_OBJECT_SIZE(10);
@@ -52,11 +67,13 @@ byte brightness = 255;
 int color_temp = 144;
 
 /******************************** GLOBALS for fade/flash *******************************/
+bool startMode = true;
+bool updateMode = false;
 bool stateOn = false;
 bool startFade = false;
 bool onbeforeflash = false;
 unsigned long lastLoop = 0;
-int transitionTime = 0;
+int transitionTime = 80;
 int effectSpeed = 0;
 bool inFade = false;
 int loopCount = 0;
@@ -71,8 +88,6 @@ byte flashRed = red;
 byte flashGreen = green;
 byte flashBlue = blue;
 byte flashBrightness = brightness;
-
-
 
 /********************************** GLOBALS for EFFECTS ******************************/
 //RAINBOW
@@ -186,11 +201,7 @@ void setup() {
   Serial.println("Ready");
   Serial.print("IP Address: ");
   Serial.println(WiFi.localIP());
-
 }
-
-
-
 
 /********************************** START SETUP WIFI*****************************************/
 void setup_wifi() {
@@ -215,62 +226,50 @@ void setup_wifi() {
   Serial.println(WiFi.localIP());
 }
 
-/*
-  SAMPLE PAYLOAD:
-  {
-    "brightness": 120,
-    "color": {
-      "r": 255,
-      "g": 100,
-      "b": 100
-    },
-    "flash": 2,
-    "transition": 5,
-    "state": "ON"
-  }
-*/
-
-
-
 /********************************** START CALLBACK*****************************************/
 void callback(char* topic, byte* payload, unsigned int length) {
-  Serial.print("Message arrived [");
-  Serial.print(topic);
-  Serial.print("] ");
+  if(startMode || updateMode) {
+    Serial.print("Message arrived [");
+    Serial.print(topic);
+    Serial.print("] ");
 
-  char message[length + 1];
-  for (int i = 0; i < length; i++) {
-    message[i] = (char)payload[i];
+    char message[length + 1];
+    for (int i = 0; i < length; i++) {
+      message[i] = (char)payload[i];
+    }
+    message[length] = '\0';
+    Serial.println(message);
+
+    if (!processJson(message)) {
+      return;
+    }
+
+    if (stateOn) {
+      realRed = map(red, 0, 255, 0, brightness);
+      realGreen = map(green, 0, 255, 0, brightness);
+      realBlue = map(blue, 0, 255, 0, brightness);
+    }
+    else {
+      realRed = 0;
+      realGreen = 0;
+      realBlue = 0;
+    }
+
+    Serial.println(effect);
+
+    startFade = true;
+    inFade = false; // Kill the current fade
   }
-  message[length] = '\0';
-  Serial.println(message);
 
-  if (!processJson(message)) {
-    return;
+  if(startMode) {
+    startMode = false;
   }
-
-  if (stateOn) {
-
-    realRed = map(red, 0, 255, 0, brightness);
-    realGreen = map(green, 0, 255, 0, brightness);
-    realBlue = map(blue, 0, 255, 0, brightness);
+  if(!updateMode) {
+    updateMode = true;
   }
-  else {
-
-    realRed = 0;
-    realGreen = 0;
-    realBlue = 0;
-  }
-
-  Serial.println(effect);
-
-  startFade = true;
-  inFade = false; // Kill the current fade
 
   sendState();
 }
-
-
 
 /********************************** START PROCESS JSON*****************************************/
 bool processJson(char* message) {
@@ -356,7 +355,6 @@ bool processJson(char* message) {
       unsigned int kelvin  = 1000000 / color_temp;
 
       temp2rgb(kelvin);
-
     }
 
     if (root.containsKey("brightness")) {
@@ -375,13 +373,10 @@ bool processJson(char* message) {
     else if ( effectString == "solid") {
       transitionTime = 0;
     }
-
   }
 
   return true;
 }
-
-
 
 /********************************** START SEND STATE*****************************************/
 void sendState() {
@@ -429,8 +424,6 @@ void reconnect() {
   }
 }
 
-
-
 /********************************** START Set Color*****************************************/
 void setColor(int inR, int inG, int inB) {
   for (int i = 0; i < NUM_LEDS; i++) {
@@ -450,12 +443,11 @@ void setColor(int inR, int inG, int inB) {
   Serial.println(inB);
 }
 
-
-
 /********************************** START MAIN LOOP*****************************************/
 void loop() {
 
   if (!client.connected()) {
+    updateMode = false;
     reconnect();
   }
 
